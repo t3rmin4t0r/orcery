@@ -102,7 +102,7 @@ public class ORCery extends Configured implements Tool {
 			n = Integer.parseInt(line.getOptionValue('n'));
 		}
 		
-		HiveConf.setVar(conf,HiveConf.ConfVars.HIVE_ORC_WRITE_FORMAT, "0.12"); // use latest format
+		conf.set("hive.exec.orc.write.format", "0.12"); // use latest format
 		FileSystem fs = FileSystem.get(conf);
 		int stripeSize = 16*1024*1024;
 		CompressionKind compress = CompressionKind.ZLIB;
