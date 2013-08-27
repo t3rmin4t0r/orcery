@@ -17,6 +17,8 @@ import org.apache.commons.*;
 import java.nio.*;
 import java.util.*;
 import java.net.*;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 import java.math.*;
 import java.security.*;
 import java.util.concurrent.*;
@@ -76,6 +78,17 @@ public class ORCery extends Configured implements Tool {
         System.exit(res);
     }
     
+    private MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
+    
+    private long prev = 0;
+    
+    public void status(String line) {
+    	long cur = mbean.getHeapMemoryUsage().getUsed();
+    	System.out.println(line);
+    	System.out.printf("Memory used = %d (%s%d)\n", cur, cur >= prev ? "+" : "", cur-prev);
+    	prev = cur;
+    }
+    
     @Override
     public int run(String[] args) throws Exception {
     	Configuration conf = getConf();
@@ -96,7 +109,8 @@ public class ORCery extends Configured implements Tool {
 		}
 		
 		Path out = new Path(line.getOptionValue("output"));
-		int n = 2;
+		int n = 500;
+		int k = 20;
 		
 		if(line.hasOption('n')) {
 			n = Integer.parseInt(line.getOptionValue('n'));
@@ -111,18 +125,30 @@ public class ORCery extends Configured implements Tool {
 		ObjectInspector inspector = ObjectInspectorFactory.getReflectionObjectInspector(SampleRow.class, ObjectInspectorOptions.JAVA);
 		Writer writers[] = new Writer[n];
 		for (int i = 0 ; i < n; i++) {
+			if(i % k == 1) {
+				status("Creating writer # " + i);
+			}
 			Path path = new Path(out, String.format("%03d", i));
 			writers[i] = OrcFile.createWriter(fs, path, conf, inspector, stripeSize, compress, bufferSize, rowIndexStride);
-			fs.deleteOnExit(path);
+			fs.deleteOnExit(path);			
 		}
+		status("Finished creating writers");
 		
 		for (int i = 0; i < n; i++) {
+			if(i % k == 1) {
+				status("Writing 1 row to writer # " + i);
+			}
 			writers[i].addRow(new SampleRow());
 		}
+		status("Finished writing rows");
 		
 		for (int i = 0; i < n; i++) {
+			if(i % k == 1) {
+				status("Closing writer # " + i);
+			}
 			writers[i].close();
 		}
+		status("Finished closing writers");		
 		fs.deleteOnExit(out);
 		
 	    return 0;
